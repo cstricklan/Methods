@@ -1,0 +1,47 @@
+function [ nmax ] = Getnmax2D( ER, UR )
+%GETNMAX2D Method calculates the nmax for a materials array for 2D
+%   Detailed explanation goes here
+
+
+  [eM eN] = size(ER);
+  [uM uN] = size(UR);
+  
+  if(eM ~= uM && eN ~= uN)
+    MException('ArraySize', 'Materials arrays are not the same size');
+  end
+
+  n = zeros([eM eN]);
+  n = sqrt(ER.*UR);  % Calculate refractive index of each material
+  nmax = max(max(n));
+end
+
+
+
+
+
+
+    
+
+    
+        subplot(122);
+    h = plot(FREQ/gigahertz,100*REF,'-r'); hold on;
+    plot(FREQ/gigahertz,100*TRN,'-b');
+    plot(FREQ/gigahertz,100*CON,':k'); hold off;
+    axis([FREQ(1)/gigahertz FREQ(NFREQ)/gigahertz 0 105]);
+    title('REFLECTANCE AND TRANSMITTANCE');    
+    
+    h2 = get(h,'Parent');
+    %set(h2,'FontSize',14,'LineWidth',2);
+    %h = legend('Reflectance','Transmittance','Conservation');
+    %set(h,'Location','NorthEastOutside');
+    xlabel('Frequency (GHz)');
+    ylabel('%','Rotation',0,'HorizontalAlignment','right');
+    
+    
+
+      
+      if(f0 ~= -1)
+  Eref0 = zeros(Nx,1);
+  Etrn0 = zeros(Nx,1);
+  ssSRC = 0;
+end

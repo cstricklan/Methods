@@ -2,7 +2,13 @@ function [ N_lambda ] = GetNlambda( ER, UR )
 %GETNLAMBDA Summary of this function goes here
 %   Detailed explanation goes here
 
-nmax = Getnmax(ER, UR);
+x = size(ER);
+
+if (x(1) == 1)
+  nmax = Getnmax(ER, UR);
+else
+  nmax = Getnmax2D(ER, UR);
+end
 
 if(nmax < 10)
   N_lambda = 20;
