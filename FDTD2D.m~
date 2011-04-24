@@ -1,4 +1,4 @@
-function FDTD2D( dc, Size, rER, rUR, Steps, EMAX, Buffer, NPML, FREQ, NFREQ, Update, SSFREQ, Title )
+function FDTD2D( dc, Size, rER, rUR, Steps, EMAX, Buffer, NPML, FREQ, NFREQ, Update, SSFREQ, Title, NRES )
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Pre-Program Work
@@ -26,7 +26,6 @@ N0 = sqrt(u0/e0);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Initialization of Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 fmax = FREQ(length(FREQ));
 fmin = FREQ(1);
 
@@ -44,7 +43,12 @@ d_lambda = lambda_min/N_lambda/nmax;
 
 
 % Structure Resolution
-N_d = 10;
+if(NRES == -1)
+  N_d = 10;
+else
+  N_d = NRES;
+end
+
 ddx = dc.x/N_d; 
 ddy = dc.y/N_d;
 
@@ -60,6 +64,7 @@ dy = min(d_lambda, ddy);
 N_prime = ceil(dc.y/dy);
 dy = dc.y/N_prime;
 Ny = ceil(Size.y/dy);
+
 
 % Add free space buffer and TF/SF
 if(Buffer.x.value == -1)
@@ -81,7 +86,6 @@ end
 Nx = Nx + buffer.xt + NPML(1) + NPML(2);
 Ny = Ny + buffer.yt + NPML(3) + NPML(4);
 
-
 %Compute Time Steps
 nsrc = 1;  %Source is injected in air
 dt = nsrc * dy/(2*c0); %secs
@@ -97,22 +101,24 @@ t0 = 6*tau;              % Delay/Pulse Position
  cf.y = ceil((Ny - buffer.y*2-3-NPML(3)-NPML(4))/n);
 
 % Material Properties
-% global ERzz;
+
+global ERzz;
 URxx = zeros(Nx,Ny);
 URyy = zeros(Nx,Ny);
 ERzz = zeros(Nx,Ny);
 
-% disp(size(URxx)); 
-% disp(['buffer x: ' num2str(buffer.x)]);
-% disp(['buffer y: ' num2str(buffer.y)]);
-% disp(['cf x: ' num2str(cf.x)]);
-% disp(['cf y: ' num2str(cf.y)]);
-% disp(['dx: ' num2str(dx)]);
-% disp(['dy: ' num2str(dy)]);
-% disp(['Size x: ' num2str(Nx*dx*centimeters)]);
-% disp(['Size y: ' num2str(Ny*dy*centimeters)]);
 
-  
+disp(['buffer x: ' num2str(buffer.x)]);
+disp(['buffer y: ' num2str(buffer.y)]);
+disp(['cf x: ' num2str(cf.x)]);
+disp(['cf y: ' num2str(cf.y)]);
+disp(['dx: ' num2str(dx)]);
+disp(['dy: ' num2str(dy)]);
+disp(['Size x: ' num2str(Nx*dx*centimeters)]);
+disp(['Size y: ' num2str(Ny*dy*centimeters)]);
+disp(['Nx: ' num2str(Nx)]);
+disp(['Ny: ' num2str(Ny)]);
+
  % We Need to lay our real materials vectors over our numerical material
  % grid
 
@@ -127,7 +133,8 @@ ERzz = zeros(Nx,Ny);
     end
  end
  
- %Fill our buffer regions
+
+%  %Fill our buffer regions
   ERzz(1:buffer.x+NPML(1),:)=Buffer.x.e(1);
   ERzz(:,1:buffer.y+NPML(3)+2) = Buffer.y.e(1);
   ERzz(Nx-buffer.x-NPML(2)+1:Nx,:) = Buffer.x.e(2);
@@ -186,7 +193,7 @@ STEPS = Steps;
 if(STEPS == -1)
   tprop = (nmax*Ny*dy)/c0; % Wave Propagation time;
   T = 12*tau + 5*tprop;
-  STEPS = ceil(T/dt);
+  STEPS = ceil(T/dt)*2;
 end
 
 ta = [0:STEPS-1]*dt;     % Time Axis;
@@ -329,13 +336,14 @@ disp(['STEPS: ' num2str(STEPS)]);
 disp(['s: ' num2str(deltsrc)]);
 disp(['A: ' num2str(A)]);
 disp(['SSFREQ: ' num2str(SSFREQ)]);
-% disp(['ER: ' num2str(length(ER))]);
-% disp(ER);
+disp(['Size URxx: ' num2str(size(URxx))]);
+disp(['Size Erzz: ' num2str(size(ERzz))]);
+%disp(['ER: ' num2str(length(ER))]);
+%disp(ER);
 % disp(['UR: ' num2str(length(UR))]);;
 % disp(UR);
 % subplot(122);
-% imagesc(ERzz);
-%  return;
+
 
 
 
@@ -444,7 +452,7 @@ while ((emax > EMAX) || (T < STEPS))
   % Update Ez
   Ez = mEz1.*Dz;
   emax = max(max(Ez));
-  disp(emax);
+
   %%%%%%%%%%%%%%%%%% Compute Power %%%%%%%%%%%%%%%%%%%%
   
   for f = 1:NFREQ
@@ -454,11 +462,13 @@ while ((emax > EMAX) || (T < STEPS))
   end;
   
   if(f0 ~= -1)
-      Eref0 = Eref0 + (K0^T)*Ez(:,ny_ref)*dt;
-      Etrn0 = Etrn0 + (K0^T)*Ez(:,ny_trn)*dt;
-      ssSRC = ssSRC + (K0^T)*Ez_src(T)*dt;
+    Eref0 = Eref0 + (K0^T)*Ez(:,ny_ref)*dt;
+    Etrn0 = Etrn0 + (K0^T)*Ez(:,ny_trn)*dt;
+    ssSRC = ssSRC + (K0^T)*Ezsrc*dt;
   end
     
+  
+  
   if(mod(T,Update) == 0 || T == 1)
     subplot(121);
     draw2d(xa,ya, ERzz, Ez, NPML, 0.03);
@@ -466,6 +476,9 @@ while ((emax > EMAX) || (T < STEPS))
     title(['STEP' num2str(T) ' of ~' num2str(STEPS)]);
     drawnow;
     
+
+  
+  
     if(f0 ~= -1)
       %%%%%%%%%%%%%%%%%% DESIGN Frequency %%%%%%%%%%%%%%%%%%%%
       %Wave Vector Components
@@ -479,14 +492,13 @@ while ((emax > EMAX) || (T < STEPS))
       kyT = sqrt((k0*ntrn)^2 - kx.^2);
 
       %REF
-      ref = Eref0/ssSrc;
+      ref = Eref0/ssSRC;
       ref = fftshift(fft(ref))/Nx;
       ref = real(kyR/kyinc) .* abs(ref).^2;
       REF = sum(ref); 
 
-
       %TRN
-      trn = Etrn0/ssSrc;
+      trn = Etrn0/ssSRC;
       trn = fftshift(fft(trn))/Nx;
       trn = real(kyT/kyinc) .* abs(trn).^2;
       TRN = sum(trn);
@@ -496,55 +508,54 @@ while ((emax > EMAX) || (T < STEPS))
       disp(['Reflectance= ' num2str(100*REF,'%4.1f') '%']);
       disp(['Transmittance = ' num2str(100*TRN,'%4.1f') '%']);
       disp(['Conservation = ' num2str(100*CON,'%4.1f') '%']);
+      disp(' ');
       %%%%%%%%%%%%%%%%%% DESIGN Frequency %%%%%%%%%%%%%%%%%%%%
     end
+        
     
     
-    %%%%%%%%%%%%%%%%%% Frequency Sweep %%%%%%%%%%%%%%%%%%%%
+    
     REF = zeros(1,NFREQ);
     TRN = zeros(1,NFREQ);
 
-    % LOOP OVER FREQUENCY
-    for nfreq = 1 : NFREQ
-      % Compute Wave Vector Components
-      lam0 = c0/FREQ(nfreq);
+    for f = 1: NFREQ
+      %Wave Vector Components
+      lam0 = c0/FREQ(f);
       k0 = 2*pi/lam0;
-      kyinc = k0*nref;
+      kzinc = k0*nref;
       m = [-floor(Nx/2):floor(Nx/2)]';
-      kx = - 2*pi*m/Nx*dx;
-      kyR = sqrt((k0*nref)^2 - ky.^2);
-      kyT = sqrt((k0*ntrn)^2 - ky.^2);
-    
-    % Compute Reflectance 
-    ref = EREF(:,nfreq)/SRC(nfreq); %normalize to source
-    ref lif( %compute spatial harmonics
-f %compute diffraction eff.
-)/S C( f %compute reflectance
-) 
-ref = fftshift(fft(ref))/Nx; 
-ref = real(kyR/kyinc) .* abs(ref).^2; 
-REF(nfreq) = sum(ref); 
-% Compute Transmittance %normalize to source
-trn = Etrn(:,nfreq)/SRC(nfreq); %compute spatial harmonics
-trn = fftshift(fft(trn))/Nx; %compute diffraction eff.
-trn = real(kyT/kyinc) .* abs(trn).^2; %compute transmittance
-TRN(nfreq) = sum(trn); 
-end
-    %%%%%%%%%%%%%%%%%% Frequency Sweep %%%%%%%%%%%%%%%%%%%%
-    
-    
-    
-    
-    
-    
-    
+      kx = -2 * pi*m/(Nx*dx);
+      kzR = sqrt((k0*nref)^2 - kx.^2);
+      kzT = sqrt((k0*ntrn)^2 - kx.^2);
+
+      %REF
+      ref = EREF(:,f)/SRC(f);
+      disp(['nref' num2str(size(nref))]);
+      disp(['KzR: ' num2str(size(kzR))]);
+      disp(['ref: ' num2str(size(ref))]);
+      disp(['kzinc: ' num2str(size(kzinc))]);
+
+      ref = fftshift(fft(ref))/Nx;
+      ref = real(kzR/kzinc) .* abs(ref).^2;
+      REF(f) = sum(ref); 
+      
+       
+      %TRN
+      trn = ETRN(:,f)/SRC(f);
+      trn = fftshift(fft(trn))/Nx;
+      trn = real(kzT/kzinc) .* abs(trn).^2;
+      TRN(f) = sum(trn);
+    end
+
+    CON = REF + TRN;  
     
     subplot(122);
-    plot(FREQ/gigahertz,REF,'-r'); hold on;
-    plot(FREQ/gigahertz,TRN,'-b');
-    plot(FREQ/gigahertz,CON,':k'); hold off;
-    axis([FREQ(1)/gigahertz FREQ(NFREQ)/gigahertz -0.1 1.5]);
+    plot(FREQ/gigahertz,100*REF,'-r'); hold on;
+    plot(FREQ/gigahertz,100*TRN,'-b');
+    plot(FREQ/gigahertz,100*CON,':k'); hold off;
+    axis([FREQ(1)/gigahertz FREQ(NFREQ)/gigahertz 0 105]);
     xlabel('Frequency (GHz)');
+    ylabel('%','Rotation',0,'HorizontalAlignment','right');
     title('REFLECTANCE AND TRANSMITTANCE');    
   end
   

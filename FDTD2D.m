@@ -1,4 +1,4 @@
-function FDTD2D( dc, Size, rER, rUR, Steps, EMAX, Buffer, NPML, FREQ, NFREQ, Update, SSFREQ, Title )
+function FDTD2D( dc, Size, rER, rUR, Steps, EMAX, Buffer, NPML, FREQ, NFREQ, Update, SSFREQ, Title, NRES )
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Pre-Program Work
@@ -26,7 +26,6 @@ N0 = sqrt(u0/e0);
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %  Initialization of Parameters
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
 fmax = FREQ(length(FREQ));
 fmin = FREQ(1);
 
@@ -44,7 +43,12 @@ d_lambda = lambda_min/N_lambda/nmax;
 
 
 % Structure Resolution
-N_d = 10;
+if(NRES == -1)
+  N_d = 10;
+else
+  N_d = NRES;
+end
+
 ddx = dc.x/N_d; 
 ddy = dc.y/N_d;
 
@@ -60,6 +64,7 @@ dy = min(d_lambda, ddy);
 N_prime = ceil(dc.y/dy);
 dy = dc.y/N_prime;
 Ny = ceil(Size.y/dy);
+
 
 % Add free space buffer and TF/SF
 if(Buffer.x.value == -1)
@@ -81,6 +86,9 @@ end
 Nx = Nx + buffer.xt + NPML(1) + NPML(2);
 Ny = Ny + buffer.yt + NPML(3) + NPML(4);
 
+if mod(Nx,2) == 0
+  Nx = Nx + 1;
+end
 
 %Compute Time Steps
 nsrc = 1;  %Source is injected in air
@@ -97,12 +105,13 @@ t0 = 6*tau;              % Delay/Pulse Position
  cf.y = ceil((Ny - buffer.y*2-3-NPML(3)-NPML(4))/n);
 
 % Material Properties
-% global ERzz;
+
+global ERzz;
 URxx = zeros(Nx,Ny);
 URyy = zeros(Nx,Ny);
 ERzz = zeros(Nx,Ny);
 
-% disp(size(URxx)); 
+
 % disp(['buffer x: ' num2str(buffer.x)]);
 % disp(['buffer y: ' num2str(buffer.y)]);
 % disp(['cf x: ' num2str(cf.x)]);
@@ -111,8 +120,9 @@ ERzz = zeros(Nx,Ny);
 % disp(['dy: ' num2str(dy)]);
 % disp(['Size x: ' num2str(Nx*dx*centimeters)]);
 % disp(['Size y: ' num2str(Ny*dy*centimeters)]);
+% disp(['Nx: ' num2str(Nx)]);
+% disp(['Ny: ' num2str(Ny)]);
 
-  
  % We Need to lay our real materials vectors over our numerical material
  % grid
 
@@ -127,7 +137,8 @@ ERzz = zeros(Nx,Ny);
     end
  end
  
- %Fill our buffer regions
+
+%  %Fill our buffer regions
   ERzz(1:buffer.x+NPML(1),:)=Buffer.x.e(1);
   ERzz(:,1:buffer.y+NPML(3)+2) = Buffer.y.e(1);
   ERzz(Nx-buffer.x-NPML(2)+1:Nx,:) = Buffer.x.e(2);
@@ -243,10 +254,6 @@ sigHx = sigx(1:2:Nx2, 2:2:Ny2);
 sigHy = sigy(1:2:Nx2, 2:2:Ny2);
 
 mHx0 = (1/dt) + (sigHy/(2*e0));
-
-disp(size(URxx));
-disp(size(mHx0));
-
 mHx1 = ((1/dt) - (sigHy/(2*e0)))./mHx0;
 mHx2 = -(c0./URxx)./mHx0;
 mHx3 = -((c0*dt/e0)*(sigHx./URxx))./mHx0;
@@ -329,13 +336,14 @@ disp(['STEPS: ' num2str(STEPS)]);
 disp(['s: ' num2str(deltsrc)]);
 disp(['A: ' num2str(A)]);
 disp(['SSFREQ: ' num2str(SSFREQ)]);
-% disp(['ER: ' num2str(length(ER))]);
-% disp(ER);
+disp(['Size URxx: ' num2str(size(URxx))]);
+disp(['Size Erzz: ' num2str(size(ERzz))]);
+%disp(['ER: ' num2str(length(ER))]);
+%disp(ER);
 % disp(['UR: ' num2str(length(UR))]);;
 % disp(UR);
 % subplot(122);
-% imagesc(ERzz);
-%  return;
+
 
 
 
@@ -488,7 +496,6 @@ while ((emax > EMAX) || (T < STEPS))
       ref = fftshift(fft(ref))/Nx;
       ref = real(kyR/kyinc) .* abs(ref).^2;
       REF = sum(ref); 
-
 
       %TRN
       trn = Etrn0/ssSRC;
